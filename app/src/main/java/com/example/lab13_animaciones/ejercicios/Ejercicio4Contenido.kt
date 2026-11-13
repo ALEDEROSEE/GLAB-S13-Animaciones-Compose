@@ -1,5 +1,6 @@
 package com.example.lab13_animaciones.ejercicios
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -35,7 +36,10 @@ enum class EstadoCarga(val etiqueta: String) {
     ERROR("Error")
 }
 
-/** Ejercicio 4 - paso 1: tres estados con mensajes distintos; el cambio todavia es instantaneo. */
+/**
+ * Ejercicio 4 - paso 2: AnimatedContent con su transicion por defecto
+ * (fadeIn + scaleIn de entrada, fadeOut de salida y SizeTransform para el tamano).
+ */
 @Composable
 fun Ejercicio4Contenido(modifier: Modifier = Modifier) {
     var estado by rememberSaveable { mutableStateOf(EstadoCarga.CARGANDO) }
@@ -53,7 +57,10 @@ fun Ejercicio4Contenido(modifier: Modifier = Modifier) {
                 )
             }
         }
-        VistaEstado(estado)
+        AnimatedContent(targetState = estado, label = "estado") { objetivo ->
+            // Importante: usar "objetivo" (el estado de ESTE contenido), no "estado"
+            VistaEstado(objetivo)
+        }
     }
 }
 
