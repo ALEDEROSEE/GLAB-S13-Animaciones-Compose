@@ -40,6 +40,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.lab13_animaciones.ejercicios.Ejercicio1Visibilidad
 
 /** Cada pantalla del laboratorio. El orden es el de la guia. */
 enum class Destino(
@@ -79,6 +80,7 @@ fun Lab13App() {
         val modifier = Modifier.padding(innerPadding)
         when (actual) {
             null -> MenuPrincipal(onElegir = { actual = it }, modifier = modifier)
+            Destino.VISIBILIDAD -> Ejercicio1Visibilidad(modifier)
             else -> PantallaPendiente(actual!!, modifier)
         }
     }
