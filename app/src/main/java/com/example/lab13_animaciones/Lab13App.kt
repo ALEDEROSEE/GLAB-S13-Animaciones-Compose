@@ -46,14 +46,15 @@ import com.example.lab13_animaciones.ejercicios.Ejercicio2Color
 /** Cada pantalla del laboratorio. El orden es el de la guia. */
 enum class Destino(
     val titulo: String,
+    val tituloCorto: String,
     val descripcion: String,
     val icono: ImageVector
 ) {
-    VISIBILIDAD("Ejercicio 1 · AnimatedVisibility", "Mostrar y ocultar un cuadro con fadeIn / fadeOut", Icons.Filled.Visibility),
-    COLOR("Ejercicio 2 · animateColorAsState", "Azul ↔ verde con tween, spring, keyframes y snap", Icons.Filled.Palette),
-    TAMANO_POSICION("Ejercicio 3 · Tamaño y posición", "animateDpAsState + Modifier.offset y el orden de los modificadores", Icons.Filled.OpenWith),
-    CONTENIDO("Ejercicio 4 · AnimatedContent", "Estados Cargando, Contenido y Error", Icons.Filled.SwapHoriz),
-    JUEGO("Ejercicio final · Lluvia de meteoritos", "Prototipo de videojuego con animaciones combinadas", Icons.Filled.SportsEsports)
+    VISIBILIDAD("Ejercicio 1 · AnimatedVisibility", "Ej. 1 · Visibilidad", "Mostrar y ocultar un cuadro con fadeIn / fadeOut", Icons.Filled.Visibility),
+    COLOR("Ejercicio 2 · animateColorAsState", "Ej. 2 · Color", "Azul ↔ verde con tween, spring, keyframes y snap", Icons.Filled.Palette),
+    TAMANO_POSICION("Ejercicio 3 · Tamaño y posición", "Ej. 3 · Tamaño y posición", "animateDpAsState + Modifier.offset y el orden de los modificadores", Icons.Filled.OpenWith),
+    CONTENIDO("Ejercicio 4 · AnimatedContent", "Ej. 4 · Estados", "Estados Cargando, Contenido y Error", Icons.Filled.SwapHoriz),
+    JUEGO("Ejercicio final · Lluvia de meteoritos", "Lluvia de meteoritos", "Prototipo de videojuego con animaciones combinadas", Icons.Filled.SportsEsports)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -67,7 +68,7 @@ fun Lab13App() {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(actual?.titulo ?: "Lab 13 · Animaciones") },
+                title = { Text(actual?.tituloCorto ?: "Lab 13 · Animaciones") },
                 navigationIcon = {
                     if (actual != null) {
                         IconButton(onClick = { actual = null }) {
