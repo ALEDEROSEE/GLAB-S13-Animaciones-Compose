@@ -44,6 +44,7 @@ import com.example.lab13_animaciones.ejercicios.Ejercicio1Visibilidad
 import com.example.lab13_animaciones.ejercicios.Ejercicio2Color
 import com.example.lab13_animaciones.ejercicios.Ejercicio3TamanoPosicion
 import com.example.lab13_animaciones.ejercicios.Ejercicio4Contenido
+import com.example.lab13_animaciones.juego.PantallaJuego
 
 /** Cada pantalla del laboratorio. El orden es el de la guia. */
 enum class Destino(
@@ -61,9 +62,9 @@ enum class Destino(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun Lab13App() {
+fun Lab13App(inicial: Destino? = null) {
     // null = menu principal. rememberSaveable para no volver al menu al rotar.
-    var actual by rememberSaveable { mutableStateOf<Destino?>(null) }
+    var actual by rememberSaveable { mutableStateOf(inicial) }
 
     BackHandler(enabled = actual != null) { actual = null }
 
@@ -88,7 +89,7 @@ fun Lab13App() {
             Destino.COLOR -> Ejercicio2Color(modifier)
             Destino.TAMANO_POSICION -> Ejercicio3TamanoPosicion(modifier)
             Destino.CONTENIDO -> Ejercicio4Contenido(modifier)
-            else -> PantallaPendiente(actual!!, modifier)
+            Destino.JUEGO -> PantallaJuego(modifier)
         }
     }
 }
@@ -131,12 +132,5 @@ private fun MenuPrincipal(onElegir: (Destino) -> Unit, modifier: Modifier = Modi
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun PantallaPendiente(destino: Destino, modifier: Modifier = Modifier) {
-    Column(modifier.padding(16.dp)) {
-        Text("${destino.titulo}: pendiente")
     }
 }
