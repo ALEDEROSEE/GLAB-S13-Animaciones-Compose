@@ -1,5 +1,6 @@
 package com.example.lab13_animaciones.ejercicios
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -20,10 +21,17 @@ import com.example.lab13_animaciones.ui.PantallaEjercicio
 private val Azul = Color(0xFF1565C0)
 private val Verde = Color(0xFF2E7D32)
 
-/** Ejercicio 2 - paso 1: un boton cambia el fondo del cuadro entre azul y verde (de golpe). */
+/**
+ * Ejercicio 2 - paso 2: animateColorAsState anima desde el color actual hasta el objetivo.
+ * Si se toca el boton a mitad de camino, la animacion sigue desde donde iba (no salta).
+ */
 @Composable
 fun Ejercicio2Color(modifier: Modifier = Modifier) {
     var esAzul by rememberSaveable { mutableStateOf(true) }
+    val color by animateColorAsState(
+        targetValue = if (esAzul) Azul else Verde,
+        label = "fondo"
+    )
 
     PantallaEjercicio(
         enunciado = "El botón cambia el color de fondo del cuadro entre azul y verde.",
@@ -34,7 +42,7 @@ fun Ejercicio2Color(modifier: Modifier = Modifier) {
             modifier = Modifier
                 .fillMaxWidth()
                 .height(160.dp)
-                .background(if (esAzul) Azul else Verde, RoundedCornerShape(16.dp))
+                .background(color, RoundedCornerShape(16.dp))
         )
     }
 }
