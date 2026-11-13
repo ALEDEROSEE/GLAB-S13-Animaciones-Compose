@@ -42,6 +42,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.lab13_animaciones.ejercicios.Ejercicio1Visibilidad
 import com.example.lab13_animaciones.ejercicios.Ejercicio2Color
+import com.example.lab13_animaciones.ejercicios.Ejercicio3TamanoPosicion
 
 /** Cada pantalla del laboratorio. El orden es el de la guia. */
 enum class Destino(
@@ -84,6 +85,7 @@ fun Lab13App() {
             null -> MenuPrincipal(onElegir = { actual = it }, modifier = modifier)
             Destino.VISIBILIDAD -> Ejercicio1Visibilidad(modifier)
             Destino.COLOR -> Ejercicio2Color(modifier)
+            Destino.TAMANO_POSICION -> Ejercicio3TamanoPosicion(modifier)
             else -> PantallaPendiente(actual!!, modifier)
         }
     }
