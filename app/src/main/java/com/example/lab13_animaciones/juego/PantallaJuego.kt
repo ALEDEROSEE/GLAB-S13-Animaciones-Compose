@@ -439,8 +439,9 @@ fun PantallaJuego(modifier: Modifier = Modifier) {
         }
 
         // ------------------------------------------------ carteles
+        // en pausa el cartel se esconde (antes se encimaba con "PAUSA")
         AnimatedVisibility(
-            visible = mostrarNivel,
+            visible = mostrarNivel && fase == Fase.JUGANDO,
             enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy), initialScale = 0.3f) + fadeIn(),
             exit = slideOutVertically { -it * 2 } + fadeOut(),
             modifier = Modifier.align(Alignment.Center)
