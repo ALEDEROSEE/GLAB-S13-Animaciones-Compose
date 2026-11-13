@@ -1,5 +1,6 @@
 package com.example.lab13_animaciones.ejercicios
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -13,8 +14,8 @@ import com.example.lab13_animaciones.ui.CuadroColor
 import com.example.lab13_animaciones.ui.PantallaEjercicio
 
 /**
- * Ejercicio 1 - paso 1: un boton que alterna la visibilidad de un cuadro de color.
- * Todavia sin animacion: el cuadro entra y sale de la composicion con un if.
+ * Ejercicio 1 - paso 2: el mismo cuadro, ahora dentro de AnimatedVisibility.
+ * Sin parametros usa las animaciones por defecto (fadeIn + expandIn / fadeOut + shrinkOut).
  */
 @Composable
 fun Ejercicio1Visibilidad(modifier: Modifier = Modifier) {
@@ -27,7 +28,7 @@ fun Ejercicio1Visibilidad(modifier: Modifier = Modifier) {
         Button(onClick = { visible = !visible }) {
             Text(if (visible) "Ocultar cuadro" else "Mostrar cuadro")
         }
-        if (visible) {
+        AnimatedVisibility(visible = visible) {
             CuadroColor(color = Color(0xFF1E88E5), texto = "Cuadro\nde color")
         }
     }
