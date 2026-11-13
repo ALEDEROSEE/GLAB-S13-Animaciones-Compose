@@ -11,6 +11,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -19,7 +20,6 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -70,8 +70,8 @@ fun Ejercicio1Visibilidad(modifier: Modifier = Modifier) {
     var efecto by rememberSaveable { mutableStateOf(Efecto.FADE) }
 
     PantallaEjercicio(
-        enunciado = "Un botón alterna la visibilidad de dos cuadros: el azul usa AnimatedVisibility " +
-            "y el rojo un if normal. La barra gris de abajo de cada uno muestra cómo se mueve el resto de la pantalla.",
+        enunciado = "El botón alterna dos cuadros a la vez: el azul usa AnimatedVisibility y el rojo un if. " +
+            "La barra gris representa el resto de la pantalla.",
         modifier = modifier
     ) {
         Button(onClick = { visible = !visible }) {
@@ -94,23 +94,31 @@ fun Ejercicio1Visibilidad(modifier: Modifier = Modifier) {
             }
         }
 
-        Subtitulo("Con AnimatedVisibility (entrada ${DURACION_ENTRADA} ms, salida ${DURACION_SALIDA} ms)")
-        AnimatedVisibility(
-            visible = visible,
-            enter = entrada(efecto),
-            exit = salida(efecto)
+        Subtitulo("Entrada ${DURACION_ENTRADA} ms · salida ${DURACION_SALIDA} ms")
+        // Lado a lado: izquierda AnimatedVisibility, derecha un if normal.
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            CuadroColor(color = Color(0xFF1E88E5), texto = "Notificación\nanimada")
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("AnimatedVisibility", style = MaterialTheme.typography.labelLarge)
+                AnimatedVisibility(
+                    visible = visible,
+                    enter = entrada(efecto),
+                    exit = salida(efecto)
+                ) {
+                    CuadroColor(color = Color(0xFF1E88E5), texto = "Animado", tamano = 130.dp)
+                }
+                ContenidoDeAbajo("Contenido de abajo")
+            }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("if (visible)", style = MaterialTheme.typography.labelLarge)
+                if (visible) {
+                    CuadroColor(color = Color(0xFFE53935), texto = "De golpe", tamano = 130.dp)
+                }
+                ContenidoDeAbajo("Contenido de abajo")
+            }
         }
-        ContenidoDeAbajo("Contenido debajo del cuadro azul")
-
-        HorizontalDivider()
-
-        Subtitulo("Sin animación (if)")
-        if (visible) {
-            CuadroColor(color = Color(0xFFE53935), texto = "Aparece\nde golpe")
-        }
-        ContenidoDeAbajo("Contenido debajo del cuadro rojo")
         Nota("Con «fade» el espacio del cuadro se mantiene mientras se desvanece y recién al final se libera; con «fade + expand» el contenido de abajo se acomoda suavemente.")
     }
 }
