@@ -40,7 +40,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Pause
@@ -55,6 +54,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -67,12 +67,19 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.lab13_animaciones.ejercicios.ContadorRecomposiciones
@@ -99,10 +106,14 @@ private fun colorCielo(nivel: Int, fase: Fase): Color = when {
 private data class EstrellaFondo(val x: Float, val y: Float, val radio: Float, val fase: Float)
 
 /**
- * Ejercicio final - version 2: el mismo juego con varias animaciones combinadas:
- * updateTransition (fase), animateColorAsState (cielo), animateDpAsState con spring (nave),
- * rememberInfiniteTransition (llama, estrellas, titulo), Animatable con keyframes (choque),
- * AnimatedContent (puntaje y boton de pausa) y AnimatedVisibility (vidas, nivel, paneles).
+ * Ejercicio final - version 3: mismas animaciones que la version 2, pero ordenadas para que
+ * el estado que cambia en cada fotograma (posiciones, tiempo) se lea solo en las fases de
+ * layout y dibujo. La composicion solo lee valores derivados (derivedStateOf) que cambian
+ * pocas veces: fase, puntos, vidas, nivel, carril.
+ *
+ * Animaciones: updateTransition (fase), animateColorAsState (cielo), animateDpAsState con
+ * spring (nave), rememberInfiniteTransition (llama, estrellas, titulo), Animatable con
+ * keyframes (choque), AnimatedContent (puntaje y pausa) y AnimatedVisibility (vidas, carteles).
  */
 @Composable
 fun PantallaJuego(modifier: Modifier = Modifier) {
@@ -111,6 +122,16 @@ fun PantallaJuego(modifier: Modifier = Modifier) {
     val motor = remember { MotorJuego() }
     var estado by remember { mutableStateOf(EstadoJuego(record = prefs.getInt("record", 0))) }
     var recordAlIniciar by remember { mutableIntStateOf(estado.record) }
+
+    // Valores que SI se muestran en la composicion: solo avisan cuando cambian de verdad
+    val fase by remember { derivedStateOf { estado.fase } }
+    val puntos by remember { derivedStateOf { estado.puntos } }
+    val vidas by remember { derivedStateOf { estado.vidas } }
+    val nivel by remember { derivedStateOf { estado.nivel } }
+    val carril by remember { derivedStateOf { estado.carrilNave } }
+    val golpes by remember { derivedStateOf { estado.golpes } }
+    val estrellas by remember { derivedStateOf { estado.estrellas } }
+    val record by remember { derivedStateOf { estado.record } }
 
     fun iniciar() {
         recordAlIniciar = estado.record
@@ -125,8 +146,8 @@ fun PantallaJuego(modifier: Modifier = Modifier) {
     }
 
     // ---------------------------------------------------------------- bucle del juego
-    LaunchedEffect(estado.fase) {
-        if (estado.fase != Fase.JUGANDO) return@LaunchedEffect
+    LaunchedEffect(fase) {
+        if (fase != Fase.JUGANDO) return@LaunchedEffect
         var anterior = withFrameMillis { it }
         while (isActive) {
             withFrameMillis { ahora ->
@@ -138,14 +159,14 @@ fun PantallaJuego(modifier: Modifier = Modifier) {
             }
         }
     }
-    LaunchedEffect(estado.fase) {
-        if (estado.fase == Fase.FIN) prefs.edit().putInt("record", estado.record).apply()
+    LaunchedEffect(fase) {
+        if (fase == Fase.FIN) prefs.edit().putInt("record", estado.record).apply()
     }
 
     // ---------------------------------------------------------------- animaciones
     // 1) updateTransition: varios valores que dependen de la fase y se animan juntos
-    val transicion = updateTransition(targetState = estado.fase, label = "fase")
-    val velo by transicion.animateFloat(transitionSpec = { tween(500) }, label = "velo") { f ->
+    val transicion = updateTransition(targetState = fase, label = "fase")
+    val velo = transicion.animateFloat(transitionSpec = { tween(500) }, label = "velo") { f ->
         when (f) {
             Fase.INICIO -> 0.45f
             Fase.JUGANDO -> 0f
@@ -153,7 +174,7 @@ fun PantallaJuego(modifier: Modifier = Modifier) {
             Fase.FIN -> 0.65f
         }
     }
-    val escalaNave by transicion.animateFloat(
+    val escalaNave = transicion.animateFloat(
         transitionSpec = { spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow) },
         label = "escalaNave"
     ) { f ->
@@ -163,33 +184,27 @@ fun PantallaJuego(modifier: Modifier = Modifier) {
             else -> 1f
         }
     }
-    val alphaHud by transicion.animateFloat(transitionSpec = { tween(400) }, label = "hud") { f ->
+    val alphaHud = transicion.animateFloat(transitionSpec = { tween(400) }, label = "hud") { f ->
         if (f == Fase.INICIO) 0f else 1f
     }
 
     // 2) color del cielo
-    val cielo by animateColorAsState(colorCielo(estado.nivel, estado.fase), tween(1200), label = "cielo")
+    val cielo by animateColorAsState(colorCielo(nivel, fase), tween(1200), label = "cielo")
 
-    // 3) animaciones infinitas
+    // 3) animaciones infinitas (se leen dentro de graphicsLayer / Canvas, no en composicion)
     val infinita = rememberInfiniteTransition(label = "siempre")
-    val llama by infinita.animateFloat(
-        0.7f, 1.25f, infiniteRepeatable(tween(140), RepeatMode.Reverse), label = "llama"
-    )
-    val brillo by infinita.animateFloat(
-        0f, 1f, infiniteRepeatable(tween(1800, easing = LinearEasing)), label = "brillo"
-    )
-    val flotar by infinita.animateFloat(
+    val llama = infinita.animateFloat(0.7f, 1.25f, infiniteRepeatable(tween(140), RepeatMode.Reverse), label = "llama")
+    val brillo = infinita.animateFloat(0f, 1f, infiniteRepeatable(tween(1800, easing = LinearEasing)), label = "brillo")
+    val flotar = infinita.animateFloat(
         -8f, 8f, infiniteRepeatable(tween(900, easing = FastOutSlowInEasing), RepeatMode.Reverse), label = "flotar"
     )
-    val parpadeo by infinita.animateFloat(
-        0.2f, 1f, infiniteRepeatable(tween(110), RepeatMode.Reverse), label = "parpadeo"
-    )
+    val parpadeo = infinita.animateFloat(0.2f, 1f, infiniteRepeatable(tween(110), RepeatMode.Reverse), label = "parpadeo")
 
     // 4) Animatable: sacudida del campo y destello rojo en cada choque
     val sacudida = remember { Animatable(0f) }
     val destello = remember { Animatable(0f) }
-    LaunchedEffect(estado.golpes) {
-        if (estado.golpes == 0) return@LaunchedEffect
+    LaunchedEffect(golpes) {
+        if (golpes == 0) return@LaunchedEffect
         launch {
             destello.snapTo(0.5f)
             destello.animateTo(0f, tween(450))
@@ -208,17 +223,17 @@ fun PantallaJuego(modifier: Modifier = Modifier) {
     // 5) cartel de nivel y "+5" de las estrellas
     var mostrarNivel by remember { mutableStateOf(false) }
     var nivelCartel by remember { mutableIntStateOf(1) }
-    LaunchedEffect(estado.nivel) {
-        if (estado.nivel > 1 && estado.fase == Fase.JUGANDO) {
-            nivelCartel = estado.nivel
+    LaunchedEffect(nivel) {
+        if (nivel > 1 && fase == Fase.JUGANDO) {
+            nivelCartel = nivel
             mostrarNivel = true
             delay(1500)
             mostrarNivel = false
         }
     }
     var mostrarMas5 by remember { mutableStateOf(false) }
-    LaunchedEffect(estado.estrellas) {
-        if (estado.estrellas > 0) {
+    LaunchedEffect(estrellas) {
+        if (estrellas > 0) {
             mostrarMas5 = true
             delay(650)
             mostrarMas5 = false
@@ -229,7 +244,10 @@ fun PantallaJuego(modifier: Modifier = Modifier) {
         val r = Random(7)
         List(45) { EstrellaFondo(r.nextFloat(), r.nextFloat(), 1f + r.nextFloat() * 1.8f, r.nextFloat()) }
     }
-    val densidad = LocalDensity.current
+    val medidor = rememberTextMeasurer()
+    val capaEstrella = remember(medidor) { medidor.measure("⭐", TextStyle(fontSize = 26.sp)) }
+    val capaCorazon = remember(medidor) { medidor.measure("❤️", TextStyle(fontSize = 24.sp)) }
+
     val recomposiciones = remember { ContadorRecomposiciones() }
     LaunchedEffect(Unit) {
         while (true) {
@@ -269,64 +287,63 @@ fun PantallaJuego(modifier: Modifier = Modifier) {
         val alto = maxHeight
 
         // 6) posicion de la nave con un spring que rebota un poco al llegar al carril
-        val xObjetivo = anchoCarril * (estado.carrilNave + 0.5f)
-        val xNave by animateDpAsState(
+        val xObjetivo = anchoCarril * (carril + 0.5f)
+        val xNave = animateDpAsState(
             targetValue = xObjetivo,
             animationSpec = spring(dampingRatio = 0.55f, stiffness = Spring.StiffnessMediumLow),
             label = "xNave"
         )
-        // la inclinacion sale del "retraso" del spring: mientras viaja se ladea y al llegar se endereza
-        val inclinacion = ((xObjetivo - xNave).value * 0.35f).coerceIn(-25f, 25f)
 
         // ------------------------------------------------ campo de juego (se sacude entero)
         Box(
             Modifier
                 .fillMaxSize()
-                .graphicsLayer { translationX = sacudida.value * densidad.density }
+                .graphicsLayer { translationX = sacudida.value * density }
         ) {
+            // Un solo Canvas para el fondo y todos los objetos: estado.objetos se lee al dibujar
             Canvas(Modifier.fillMaxSize()) {
-                // estrellas de fondo: bajan despacio (paralaje) y titilan con la transicion infinita
+                val e = estado
+                val b = brillo.value
                 estrellasFondo.forEach { s ->
-                    val y = (s.y + estado.tiempoMs * 0.00003f * s.radio) % 1f
-                    val a = 0.25f + 0.75f * abs(sin((brillo + s.fase) * PI.toFloat()))
+                    val y = (s.y + e.tiempoMs * 0.00003f * s.radio) % 1f
+                    val a = 0.25f + 0.75f * abs(sin((b + s.fase) * PI.toFloat()))
                     drawCircle(Color.White.copy(alpha = a), radius = s.radio * density, center = Offset(s.x * size.width, y * size.height))
                 }
-                // guias de los carriles
                 for (i in 1 until CARRILES) {
                     val x = size.width * i / CARRILES
                     drawLine(Color.White.copy(alpha = 0.07f), Offset(x, 0f), Offset(x, size.height), strokeWidth = 2f)
                 }
-            }
-
-            estado.objetos.forEach { o ->
-                val x = anchoCarril * (o.carril + 0.5f) - TAM_OBJETO / 2
-                val y = alto * o.y - TAM_OBJETO / 2
-                Box(Modifier.offset(x, y).size(TAM_OBJETO), contentAlignment = Alignment.Center) {
+                val anchoPx = size.width / CARRILES
+                e.objetos.forEach { o ->
+                    val c = Offset(anchoPx * (o.carril + 0.5f), size.height * o.y)
                     when (o.tipo) {
-                        TipoObjeto.METEORITO -> Meteorito(giro = (estado.tiempoMs * 0.18f + o.id * 47f) % 360f)
-                        TipoObjeto.ESTRELLA -> Text(
-                            "⭐", fontSize = 26.sp,
-                            modifier = Modifier.graphicsLayer {
-                                val k = 0.9f + 0.2f * abs(sin(brillo * 2 * PI.toFloat()))
-                                scaleX = k; scaleY = k
-                            }
-                        )
-                        TipoObjeto.CORAZON -> Text("❤️", fontSize = 24.sp)
+                        TipoObjeto.METEORITO -> meteorito(c, TAM_OBJETO.toPx() * 0.38f, (e.tiempoMs * 0.18f + o.id * 47f) % 360f)
+                        TipoObjeto.ESTRELLA -> {
+                            val k = 0.9f + 0.2f * abs(sin(b * 2 * PI.toFloat()))
+                            scale(k, c) { emoji(capaEstrella, c) }
+                        }
+                        TipoObjeto.CORAZON -> emoji(capaCorazon, c)
                     }
                 }
             }
 
-            // nave + llama
-            val yNave = alto * Y_NAVE - TAM_OBJETO / 2 + if (estado.fase == Fase.INICIO) flotar.dp else 0.dp
+            // nave + llama: posicion en layout (offset con lambda) y giro/escala/parpadeo en graphicsLayer
             Box(
                 modifier = Modifier
-                    .offset(xNave - TAM_OBJETO / 2, yNave)
+                    .offset {
+                        val flota = if (fase == Fase.INICIO) flotar.value.dp else 0.dp
+                        IntOffset(
+                            (xNave.value - TAM_OBJETO / 2).roundToPx(),
+                            (alto * Y_NAVE - TAM_OBJETO / 2 + flota).roundToPx()
+                        )
+                    }
                     .size(TAM_OBJETO)
                     .graphicsLayer {
-                        rotationZ = inclinacion
-                        scaleX = escalaNave
-                        scaleY = escalaNave
-                        alpha = if (estado.invulnerable) parpadeo else 1f
+                        // la inclinacion sale del "retraso" del spring: se ladea al viajar y se endereza al llegar
+                        rotationZ = ((xObjetivo - xNave.value).value * 0.35f).coerceIn(-25f, 25f)
+                        scaleX = escalaNave.value
+                        scaleY = escalaNave.value
+                        alpha = if (estado.invulnerable) parpadeo.value else 1f
                     },
                 contentAlignment = Alignment.Center
             ) {
@@ -334,7 +351,7 @@ fun PantallaJuego(modifier: Modifier = Modifier) {
                     "🔥", fontSize = 18.sp,
                     modifier = Modifier
                         .offset(y = 26.dp)
-                        .graphicsLayer { rotationZ = 180f; scaleY = llama; scaleX = 0.8f }
+                        .graphicsLayer { rotationZ = 180f; scaleY = llama.value; scaleX = 0.8f }
                 )
                 Text("🚀", fontSize = 32.sp, modifier = Modifier.graphicsLayer { rotationZ = -45f })
             }
@@ -344,7 +361,7 @@ fun PantallaJuego(modifier: Modifier = Modifier) {
                 visible = mostrarMas5,
                 enter = slideInVertically { it } + fadeIn(),
                 exit = slideOutVertically { -it } + fadeOut(),
-                modifier = Modifier.offset(xNave - 14.dp, alto * Y_NAVE - 70.dp)
+                modifier = Modifier.offset { IntOffset((xNave.value - 14.dp).roundToPx(), (alto * Y_NAVE - 70.dp).roundToPx()) }
             ) {
                 Text("+5", color = Color(0xFFFFD54F), fontWeight = FontWeight.Black, fontSize = 22.sp)
             }
@@ -361,20 +378,21 @@ fun PantallaJuego(modifier: Modifier = Modifier) {
         Box(
             Modifier
                 .fillMaxSize()
-                .background(Color.Black.copy(alpha = velo))
+                .graphicsLayer { alpha = velo.value }
+                .background(Color.Black)
         )
 
         // ------------------------------------------------ marcador
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .graphicsLayer { alpha = alphaHud }
+                .graphicsLayer { alpha = alphaHud.value }
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text("⭐", fontSize = 18.sp)
             AnimatedContent(
-                targetState = estado.puntos,
+                targetState = puntos,
                 transitionSpec = {
                     if (targetState > initialState) {
                         (slideInVertically { it } + fadeIn()) togetherWith (slideOutVertically { -it } + fadeOut())
@@ -390,7 +408,7 @@ fun PantallaJuego(modifier: Modifier = Modifier) {
                 )
             }
             Text(
-                "  Nivel ${estado.nivel}", color = Color.White.copy(alpha = 0.85f),
+                "  Nivel $nivel", color = Color.White.copy(alpha = 0.85f),
                 style = MaterialTheme.typography.labelLarge,
                 modifier = Modifier.weight(1f)
             )
@@ -398,7 +416,7 @@ fun PantallaJuego(modifier: Modifier = Modifier) {
             repeat(VIDAS_MAX) { i ->
                 Box(Modifier.size(26.dp), contentAlignment = Alignment.Center) {
                     androidx.compose.animation.AnimatedVisibility(
-                        visible = i < estado.vidas,
+                        visible = i < vidas,
                         enter = scaleIn(spring(dampingRatio = 0.35f)) + fadeIn(),
                         exit = scaleOut(tween(350), targetScale = 2f) + fadeOut(tween(350))
                     ) {
@@ -408,9 +426,9 @@ fun PantallaJuego(modifier: Modifier = Modifier) {
             }
             IconButton(
                 onClick = { estado = motor.pausar(estado) },
-                enabled = estado.fase == Fase.JUGANDO || estado.fase == Fase.PAUSA
+                enabled = fase == Fase.JUGANDO || fase == Fase.PAUSA
             ) {
-                AnimatedContent(targetState = estado.fase == Fase.PAUSA, label = "iconoPausa") { enPausa ->
+                AnimatedContent(targetState = fase == Fase.PAUSA, label = "iconoPausa") { enPausa ->
                     Icon(
                         if (enPausa) Icons.Filled.PlayArrow else Icons.Filled.Pause,
                         contentDescription = if (enPausa) "Seguir" else "Pausa",
@@ -427,13 +445,11 @@ fun PantallaJuego(modifier: Modifier = Modifier) {
             exit = slideOutVertically { -it * 2 } + fadeOut(),
             modifier = Modifier.align(Alignment.Center)
         ) {
-            Text(
-                "¡Nivel $nivelCartel!", color = Color(0xFFFFD54F), fontSize = 40.sp, fontWeight = FontWeight.Black
-            )
+            Text("¡Nivel $nivelCartel!", color = Color(0xFFFFD54F), fontSize = 40.sp, fontWeight = FontWeight.Black)
         }
 
         AnimatedVisibility(
-            visible = estado.fase == Fase.INICIO,
+            visible = fase == Fase.INICIO,
             enter = fadeIn(),
             exit = fadeOut() + scaleOut(targetScale = 1.4f),
             modifier = Modifier.align(Alignment.Center)
@@ -447,24 +463,21 @@ fun PantallaJuego(modifier: Modifier = Modifier) {
                     fontSize = 18.sp,
                     modifier = Modifier
                         .padding(top = 24.dp)
-                        .graphicsLayer { val k = 1f + 0.06f * flotar / 8f; scaleX = k; scaleY = k }
+                        .graphicsLayer { val k = 1f + 0.06f * flotar.value / 8f; scaleX = k; scaleY = k }
                 )
                 Text(
                     "Toca a la izquierda o a la derecha (o desliza) para cambiar de carril",
                     color = Color.White.copy(alpha = 0.7f),
                     style = MaterialTheme.typography.bodySmall,
+                    textAlign = TextAlign.Center,
                     modifier = Modifier.padding(top = 8.dp, start = 32.dp, end = 32.dp)
                 )
-                Text(
-                    "Récord: ${estado.record}",
-                    color = Color(0xFFFFD54F),
-                    modifier = Modifier.padding(top = 16.dp)
-                )
+                Text("Récord: $record", color = Color(0xFFFFD54F), modifier = Modifier.padding(top = 16.dp))
             }
         }
 
         AnimatedVisibility(
-            visible = estado.fase == Fase.PAUSA,
+            visible = fase == Fase.PAUSA,
             enter = fadeIn() + scaleIn(initialScale = 0.8f),
             exit = fadeOut(),
             modifier = Modifier.align(Alignment.Center)
@@ -473,7 +486,7 @@ fun PantallaJuego(modifier: Modifier = Modifier) {
         }
 
         AnimatedVisibility(
-            visible = estado.fase == Fase.FIN,
+            visible = fase == Fase.FIN,
             enter = scaleIn(spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessLow), initialScale = 0.4f) + fadeIn(),
             exit = fadeOut(tween(200)),
             modifier = Modifier.align(Alignment.Center)
@@ -483,30 +496,26 @@ fun PantallaJuego(modifier: Modifier = Modifier) {
     }
 }
 
-@Composable
-private fun Meteorito(giro: Float) {
-    Canvas(Modifier.size(TAM_OBJETO)) {
-        val c = center
-        val r = size.minDimension * 0.38f
-        // estela de fuego hacia arriba
-        val estela = Path().apply {
-            moveTo(c.x - r * 0.8f, c.y)
-            lineTo(c.x, c.y - r * 3.2f)
-            lineTo(c.x + r * 0.8f, c.y)
-            close()
-        }
-        drawPath(
-            estela,
-            Brush.verticalGradient(listOf(Color.Transparent, Color(0xCCFF7043)), startY = c.y - r * 3.2f, endY = c.y)
-        )
-        drawCircle(Brush.radialGradient(listOf(Color(0xFFBCAAA4), Color(0xFF4E342E)), center = c, radius = r), r, c)
-        // crateres que giran
-        rotate(giro, c) {
-            drawCircle(Color(0xFF3E2723), r * 0.22f, Offset(c.x - r * 0.35f, c.y - r * 0.25f))
-            drawCircle(Color(0xFF3E2723), r * 0.15f, Offset(c.x + r * 0.40f, c.y + r * 0.10f))
-            drawCircle(Color(0xFF3E2723), r * 0.10f, Offset(c.x - r * 0.05f, c.y + r * 0.45f))
-        }
+/** Meteorito dibujado a mano: estela de fuego hacia arriba, roca con degradado y crateres que giran. */
+private fun DrawScope.meteorito(c: Offset, r: Float, giro: Float) {
+    val estela = Path().apply {
+        moveTo(c.x - r * 0.8f, c.y)
+        lineTo(c.x, c.y - r * 3.2f)
+        lineTo(c.x + r * 0.8f, c.y)
+        close()
     }
+    drawPath(estela, Brush.verticalGradient(listOf(Color.Transparent, Color(0xCCFF7043)), startY = c.y - r * 3.2f, endY = c.y))
+    drawCircle(Brush.radialGradient(listOf(Color(0xFFBCAAA4), Color(0xFF4E342E)), center = c, radius = r), r, c)
+    rotate(giro, c) {
+        drawCircle(Color(0xFF3E2723), r * 0.22f, Offset(c.x - r * 0.35f, c.y - r * 0.25f))
+        drawCircle(Color(0xFF3E2723), r * 0.15f, Offset(c.x + r * 0.40f, c.y + r * 0.10f))
+        drawCircle(Color(0xFF3E2723), r * 0.10f, Offset(c.x - r * 0.05f, c.y + r * 0.45f))
+    }
+}
+
+/** Dibuja un emoji ya medido (TextLayoutResult) centrado en c. */
+private fun DrawScope.emoji(capa: TextLayoutResult, c: Offset) {
+    drawText(capa, topLeft = Offset(c.x - capa.size.width / 2f, c.y - capa.size.height / 2f))
 }
 
 @Composable
