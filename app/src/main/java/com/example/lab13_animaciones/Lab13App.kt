@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.lab13_animaciones.ejercicios.Ejercicio1Visibilidad
+import com.example.lab13_animaciones.ejercicios.Ejercicio2Color
 
 /** Cada pantalla del laboratorio. El orden es el de la guia. */
 enum class Destino(
@@ -81,6 +82,7 @@ fun Lab13App() {
         when (actual) {
             null -> MenuPrincipal(onElegir = { actual = it }, modifier = modifier)
             Destino.VISIBILIDAD -> Ejercicio1Visibilidad(modifier)
+            Destino.COLOR -> Ejercicio2Color(modifier)
             else -> PantallaPendiente(actual!!, modifier)
         }
     }
